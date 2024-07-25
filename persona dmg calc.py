@@ -329,6 +329,11 @@ def main():
                 character = turn_order[i]
                 is_party_member = character in party_members
                 print(f"\nTurn for {'Party Member' if is_party_member else 'Shadow'} {character['number']}")
+
+                if character['hp'] <= 0:
+                    print(f"{'Party Member' if is_party_member else 'Shadow'} {character['number']} is defeated and skips their turn.")
+                    i += 1
+                    continue
                 
                 character['downed'] = False
                 
@@ -413,6 +418,12 @@ def main():
                     target['hp'] = max(0, round(target['hp'] - rounded_damage))
                     print(f"Remaining HP for {'Shadow' if is_party_member else 'Party Member'} {target['number']}: {target['hp']}")
 
+                    if not check_battle_end():
+                        break
+
+                    if target['hp'] <= 0:
+                        turn_order = [char for char in turn_order if char != target]
+                        
                     if weakness == 'weak' or is_crit:
                         target['downed'] = True
                         one_more = True
