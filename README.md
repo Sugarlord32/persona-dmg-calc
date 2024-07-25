@@ -12,3 +12,5 @@ got the calculations from the smt wiki but the results were very small so I mult
 most of the values asked for can be found in the smt wiki
 
 jank code don't look at it
+
+**Expect this to not be accurate to the games!!**
