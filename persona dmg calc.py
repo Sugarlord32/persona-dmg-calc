@@ -238,19 +238,27 @@ def handle_baton_pass(passer):
                 return [receiver]
         print("Invalid party member number or same as passer. Please try again.")
 
-def all_out_attack(): # all-outs are jank rn
+def all_out_attack():
     total_damage = 0
+    individual_damages = []
     for member in party_members:
         if member['hp'] > 0:
             member_damage, _ = calculate_damage('melee', 'phys', member)
-            member_damage *= damage_multiplier  # apply damage multiplier
-            rounded_damage = round(member_damage)
-            total_damage += rounded_damage
-            print(f"Party Member {member['number']} dealt {rounded_damage} damage")
+            individual_damages.append(member_damage)
+            total_damage += member_damage
+
+    print("\nIndividual damages before multiplier:")
+    for i, damage in enumerate(individual_damages, 1):
+        print(f"Party Member {i}: {damage:.2f}")
+    
+    print(f"\nTotal damage before multiplier: {total_damage:.2f}")
+    
+    multiplied_damage = total_damage * damage_multiplier
+    print(f"Final all-out attack damage (multiplied by {damage_multiplier}): {multiplied_damage:.2f}")
     
     for shadow in shadows:
         if shadow['hp'] > 0:
-            damage = apply_defense(total_damage, shadow['endurance'], 0, None)
+            damage = apply_defense(multiplied_damage, shadow['endurance'], 0, None)
             shadow['hp'] = max(0, round(shadow['hp'] - damage))
             print(f"Shadow {shadow['number']} took {round(damage)} damage. Remaining HP: {shadow['hp']}")
         shadow['downed'] = False  # reset downed after all-out
@@ -337,7 +345,7 @@ def main():
                 
                 character['downed'] = False
                 
-                attack_input = input("Enter attack type (melee/skill/all-out): ").lower()
+                attack_input = user_input
                 if attack_input == 'reset':
                     reset()
                     break
@@ -349,6 +357,8 @@ def main():
                 if attack_input == 'all-out' and is_party_member:
                     if all(shadow['downed'] for shadow in shadows):
                         all_out_attack()
+                        if not check_battle_end():
+                            break
                         i += 1
                         continue
                     else:
@@ -382,9 +392,9 @@ def main():
                     armor_stat = 0
                     ailment = None
                 
-                    if mode == "shadow" and is_party_member:
-                        armor_stat = get_numeric_input(f"Enter armor stat for Shadow {target['number']}: ")
-                        ailment = input(f"Enter ailment for Shadow {target['number']} (or 'none'): ").lower()
+                    if mode == "shadow":
+                        armor_stat = get_numeric_input(f"Enter armor stat for party member {target['number']}: ")
+                        ailment = input(f"Enter ailment for party member {target['number']} (or 'none'): ").lower()
                         ailment = None if ailment == 'none' else ailment
 
                     crit_chance = 0
@@ -439,7 +449,7 @@ def main():
             if not check_battle_end():
                 continue
         
-        else:  # Neutral mode
+        else:  # neutral mode
             if user_input in ['melee', 'skill']:
                 armor_stat = get_numeric_input("Enter target's armor stat: ")
                 ailment = input("Enter target's ailment (or 'none'): ").lower()
@@ -476,31 +486,40 @@ def main():
                         {'endurance': get_numeric_input("Enter target's endurance: "), 
                          'level': get_numeric_input("Enter target level: ", allow_float=False)},
                         armor_stat, ailment, crit_chance)
+                    
             elif user_input == 'all-out':
                 num_party_members = get_numeric_input("Enter the number of party members: ", allow_float=False)
                 total_damage = 0
+                individual_damages = []
                 for i in range(num_party_members):
                     member_damage, _ = calculate_single_attack('melee', 'phys',
                         {'number': i+1, 'weapon_power': get_numeric_input(f"Enter weapon power for member {i+1}: "),
-                         'strength': get_numeric_input(f"Enter strength stat for member {i+1}: "),
-                         'level': get_numeric_input(f"Enter level for member {i+1}: ", allow_float=False)},
+                        'strength': get_numeric_input(f"Enter strength stat for member {i+1}: "),
+                        'level': get_numeric_input(f"Enter level for member {i+1}: ", allow_float=False)},
                         {'endurance': 1, 'level': 1})  # dummy target for calculation
-                    member_damage *= damage_multiplier  # apply damage multiplier
-                    rounded_damage = round(member_damage)
-                    total_damage += rounded_damage
-                    print(f"Party Member {i+1} dealt {rounded_damage} damage")
+                    individual_damages.append(member_damage)
+                    total_damage += member_damage
+
+                print("\nIndividual damages before multiplier:")
+                for i, damage in enumerate(individual_damages, 1):
+                    print(f"Party Member {i}: {damage:.2f}")
                 
-                num_targets = get_numeric_input("Enter the number of targets: ", allow_float=False)
-                for i in range(num_targets):
-                    target_endurance = get_numeric_input(f"Enter endurance for target {i+1}: ")
-                    target_level = get_numeric_input(f"Enter level for target {i+1}: ", allow_float=False)
-                    final_damage = apply_defense(total_damage, target_endurance, 0, None)
-                    final_damage = apply_level_difference(final_damage, get_numeric_input("Enter average party level: ", allow_float=False), target_level)
-                    
-                    rounded_damage = round(final_damage)
-                    print(f"Final damage against target {i+1}: {rounded_damage}")
+                print(f"\nTotal damage before multiplier: {total_damage:.2f}")
                 
+                multiplied_damage = total_damage * damage_multiplier
+                print(f"Total all-out attack damage (multiplied by {damage_multiplier}): {multiplied_damage:.2f}")
+
+                # apply defense calculation
+                target_endurance = get_numeric_input("Enter target's endurance: ")
+                target_level = get_numeric_input("Enter target's level: ", allow_float=False)
+                
+                final_damage = apply_defense(multiplied_damage, target_endurance, 0, None)
+                final_damage = apply_level_difference(final_damage, get_numeric_input("Enter average party level: ", allow_float=False), target_level)
+                
+                print(f"Final damage after applying target's defense: {final_damage:.2f}")
+
                 continue
+
             else:
                 print("Invalid attack type. Please enter a valid command number or name.")
                 continue
