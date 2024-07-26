@@ -345,7 +345,7 @@ def main():
                 
                 character['downed'] = False
                 
-                attack_input = user_input
+                attack_input = input("Enter attack type (melee/skill/all-out): ").lower()
                 if attack_input == 'reset':
                     reset()
                     break
@@ -394,7 +394,7 @@ def main():
                 
                     if mode == "shadow":
                         armor_stat = get_numeric_input(f"Enter armor stat for party member {target['number']}: ")
-                        ailment = input(f"Enter ailment for party member {target['number']} (or 'none'): ").lower()
+                        ailment = input(f"Enter ailment for party {target['number']} (or 'none'): ").lower()
                         ailment = None if ailment == 'none' else ailment
 
                     crit_chance = 0
@@ -449,7 +449,7 @@ def main():
             if not check_battle_end():
                 continue
         
-        else:  # neutral mode
+        else:  # Neutral mode
             if user_input in ['melee', 'skill']:
                 armor_stat = get_numeric_input("Enter target's armor stat: ")
                 ailment = input("Enter target's ailment (or 'none'): ").lower()
@@ -509,7 +509,7 @@ def main():
                 multiplied_damage = total_damage * damage_multiplier
                 print(f"Total all-out attack damage (multiplied by {damage_multiplier}): {multiplied_damage:.2f}")
 
-                # apply defense calculation
+                # Apply defense calculation
                 target_endurance = get_numeric_input("Enter target's endurance: ")
                 target_level = get_numeric_input("Enter target's level: ", allow_float=False)
                 
