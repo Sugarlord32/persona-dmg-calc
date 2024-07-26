@@ -51,12 +51,18 @@ def calculate_damage(attack_input, element=None, character=None):
         power = get_numeric_input("Enter the skill power: ")
         stat = character['magic']
         damage = math.sqrt(power) * math.sqrt(stat)
+
+    ailment = input("Enter target's ailment (burn, shock, freeze, dizzy, sleep, forget, confuse, fear, despair, rage, brainwash or none): ").lower()
+    ailment = None if ailment == 'none' else ailment
     
-    return damage, stat
+    return damage, stat, ailment
 
 def apply_defense(damage, endurance, armor_stat, ailment):
-    if mode != "party" and armor_stat != 0:
-        endurance += armor_stat / 10
+    if armor_stat is None: # if the bugfix works it works
+        armor_stat = 0
+
+    endurance += armor_stat / 10
+
     if ailment == 'dizzy':
         endurance = max(1, endurance - 10)  # prevents endurance from going below 1
         print(f"Target is dizzy. Endurance reduced to {endurance}")
@@ -129,6 +135,7 @@ def setup_battle():
                 'strength': get_numeric_input(f"Enter strength stat for Party Member {i+1}: "),
                 'magic': get_numeric_input(f"Enter magic stat for Party Member {i+1}: "),
                 'agility': get_numeric_input(f"Enter agility stat for Party Member {i+1}: "),
+                'armor_stat': get_numeric_input(f"Enter armor stat for Party Member {i+1}: "),
                 'downed': False,
                 'baton_pass_count': 0
             }
@@ -154,6 +161,7 @@ def setup_shadows():
             'endurance': get_numeric_input(f"Enter endurance for Shadow {i+1}: "),
             'magic': get_numeric_input(f"Enter magic stat for Shadow {i+1}: "),
             'agility': get_numeric_input(f"Enter agility stat for Shadow {i+1}: "),
+            'armor_stat': 0,
             'downed': False
         }
         shadows.append(shadow)
@@ -189,16 +197,16 @@ def get_turn_order():
     all_characters = party_members + shadows
     return sorted(all_characters, key=lambda x: x['agility'], reverse=True)
 
-def calculate_single_attack(attack_input, element, attacker, target, armor_stat=0, ailment=None, crit_chance=0):
-    damage, stat = calculate_damage(attack_input, element, attacker)
+def calculate_single_attack(attack_input, element, attacker, target, armor_stat, ailment=None, crit_chance=0,):
+    damage, stat, ailment = calculate_damage(attack_input, element, attacker) # does stat even do anything
     
     damage = apply_defense(damage, target['endurance'], armor_stat, ailment)
     
     damage, weakness = apply_elemental_modifier(damage, element)
     if weakness is None:
         return None, None
-    
-    # crits gave me pain
+
+    # crits gave me pain this is so jank FUCK if you're reading and want to fork please make everything better
     is_crit = False
     if (attack_input == 'melee' or (attack_input == 'skill' and element == 'phys')):
         if ailment in ['shock', 'freeze']:
@@ -271,7 +279,7 @@ def change_multiplier():
         print(f"Damage multiplier changed to {damage_multiplier}")
 
 def reset():
-    mode = "neutral"
+    mode = "neutral" # will fix eventually look at those gray names
     party_members = []
     shadows = []
     target_hp = None
@@ -336,6 +344,8 @@ def main():
             while i < len(turn_order):
                 character = turn_order[i]
                 is_party_member = character in party_members
+                is_shadow = character in shadows
+
                 print(f"\nTurn for {'Party Member' if is_party_member else 'Shadow'} {character['number']}")
 
                 if character['hp'] <= 0:
@@ -376,7 +386,9 @@ def main():
                         print("Invalid shadow number.")
                         continue
                 else:
-                    target_input = input("Enter the number of the party member to attack: ")
+                    target_input = input("Enter the number of the party member to attack (or 0 for all): ")
+                    if target_input == '0':
+                        targets = party_members
                     if target_input.isdigit() and 1 <= int(target_input) <= len(party_members):
                         targets = [party_members[int(target_input) - 1]]
                     else:
@@ -389,19 +401,13 @@ def main():
 
                 one_more = False
                 for target in targets:
-                    armor_stat = 0
                     ailment = None
-                
-                    if mode == "shadow":
-                        armor_stat = get_numeric_input(f"Enter armor stat for party member {target['number']}: ")
-                        ailment = input(f"Enter ailment for party {target['number']} (or 'none'): ").lower()
-                        ailment = None if ailment == 'none' else ailment
 
                     crit_chance = 0
                     if attack_input == 'melee' or (attack_input == 'skill' and element == 'phys'):
                         crit_chance = get_numeric_input("Enter critical hit chance (%): ")
                     
-                    final_damage, weakness = calculate_single_attack(attack_input, element, character, target, armor_stat, ailment, crit_chance)
+                    final_damage, weakness = calculate_single_attack(attack_input, element, character, target, target['armor_stat'], ailment, crit_chance)
                     if final_damage is None:
                         break
 
@@ -449,14 +455,12 @@ def main():
             if not check_battle_end():
                 continue
         
-        else:  # Neutral mode
+        else:  # neutral mode
             if user_input in ['melee', 'skill']:
                 armor_stat = get_numeric_input("Enter target's armor stat: ")
-                ailment = input("Enter target's ailment (or 'none'): ").lower()
-                ailment = None if ailment == 'none' else ailment
 
                 crit_chance = 0
-                if user_input == 'melee' or (user_input == 'skill' and get_element() == 'phys'):
+                if user_input == 'melee':
                     crit_chance = get_numeric_input("Enter critical hit chance (%): ")
                 
                 if user_input == 'melee':
@@ -468,9 +472,6 @@ def main():
                          'level': get_numeric_input("Enter target level: ", allow_float=False)},
                         armor_stat, ailment, crit_chance)
                 elif user_input == 'skill':
-                    armor_stat = get_numeric_input("Enter target's armor stat: ")
-                    ailment = input("Enter target's ailment (or 'none'): ").lower()
-                    ailment = None if ailment == 'none' else ailment
 
                     element = get_element()
                     if element is None:
@@ -480,12 +481,12 @@ def main():
                     if element == 'phys':
                         crit_chance = get_numeric_input("Enter critical hit chance (%): ")
 
-                    final_damage, _ = calculate_single_attack('skill', element, 
+                    final_damage, _ = calculate_single_attack('skill', element,
                         {'number': 1, 'magic': get_numeric_input("Enter magic stat: "), 
                          'level': get_numeric_input("Enter attacker level: ", allow_float=False)}, 
                         {'endurance': get_numeric_input("Enter target's endurance: "), 
                          'level': get_numeric_input("Enter target level: ", allow_float=False)},
-                        armor_stat, ailment, crit_chance)
+                        armor_stat, crit_chance)
                     
             elif user_input == 'all-out':
                 num_party_members = get_numeric_input("Enter the number of party members: ", allow_float=False)
@@ -509,7 +510,6 @@ def main():
                 multiplied_damage = total_damage * damage_multiplier
                 print(f"Total all-out attack damage (multiplied by {damage_multiplier}): {multiplied_damage:.2f}")
 
-                # Apply defense calculation
                 target_endurance = get_numeric_input("Enter target's endurance: ")
                 target_level = get_numeric_input("Enter target's level: ", allow_float=False)
                 
