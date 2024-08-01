@@ -1,4 +1,7 @@
 # persona-dmg-calc
+
+# THIS BRANCH CONTAINS UNTESTED CODE BASED ON THE ORIGINAL, ALL "CLEANED UP" BY CLAUDE AI. THIS BRANCH WILL BE UNSUPPORTED AND UNTESTED AS IT WAS JUST MADE FOR FUNSIES
+
 calc is slang for calculator if you didnt know
 
 i don't know if half of this shit works lol crashes might be here
