@@ -158,8 +158,8 @@ def setup_battle():
     elif advantage_mode == "neutral":
         print("Neutral start. Turn order will be decided by agility.")
     else:
-        print("Invalid input. Defaulting to neutral start.")
         advantage_mode = "neutral"
+        print("Invalid input. Defaulting to neutral start.")
     
     return True
 
@@ -186,7 +186,7 @@ def setup_shadows():
     return True
 
 def check_battle_end():
-    global mode, advantage_mode
+    global mode, advantage_mode, turn_order
     if all(shadow['hp'] <= 0 for shadow in shadows):
         print("Party Wins!")
         # Reset downed state for all shadows
@@ -210,12 +210,16 @@ def check_battle_end():
                 print("Party Advantage!")
             elif advantage_mode == "shadow":
                 print("Shadow Advantage!")
-            else:
+            elif advantage_mode == "neutral":
                 print("Neutral start. Turn order will be decided by agility.")
             break
         else:
-            print("Invalid input. Please enter 'party', 'shadow', or 'neutral'.")
+            print("Invalid input. Defaulting to neutral start.")
+            advantage_mode = "neutral"
+            break
 
+    turn_order = get_turn_order()
+    
     return True
 
 def get_turn_order():
@@ -335,7 +339,7 @@ def display_menu():
     print(f"\nCurrent mode: {mode.capitalize()}")
 
 def main():
-    global mode, party_members, shadows, target_hp, is_crit, advantage_mode
+    global mode, party_members, shadows, target_hp, is_crit, advantage_mode, turn_order
     
     while True:
         display_menu()
@@ -381,13 +385,17 @@ def main():
                 
                 character['downed'] = False
                 
-                attack_input = input("Enter attack type (melee/skill/all-out): ").lower()
+                attack_input = input("Enter attack type (melee/skill/all-out/skip): ").lower()
                 if attack_input == 'reset':
                     reset()
                     break
                 
-                if attack_input not in ['melee', 'skill', 'all-out']:
+                if attack_input not in ['melee', 'skill', 'all-out', 'skip']:
                     print("Invalid attack type. Please enter a valid command.")
+                    continue
+                
+                if attack_input == 'skip':
+                    i += 1
                     continue
 
                 if attack_input == 'all-out' and is_party_member:
@@ -484,7 +492,12 @@ def main():
                     if (weakness == 'weak' or is_crit) and not all(shadow['hp'] <= 0 for shadow in shadows):
                         target['downed'] = True
                         one_more = True
+
+                    if weakness == 'weak' or is_crit: # shitty fix for a minor bug but it's funny
                         print(f"{'Shadow' if is_party_member else 'Party Member'} {target['number']} is downed!")
+
+                    if not check_battle_end():
+                        break
 
                 if one_more:
                     extra_turns = handle_one_more(character, is_party_member)
@@ -499,6 +512,10 @@ def main():
                     advantage_mode = "neutral"
                     turn_order = get_turn_order()
                     i = 0
+
+                if not check_battle_end():
+                    i = 0
+                    turn_order = get_turn_order()
 
             if not check_battle_end():
                 continue
