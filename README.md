@@ -2,7 +2,7 @@
 
 # THIS BRANCH CONTAINS UNTESTED CODE BASED ON THE ORIGINAL, ALL "CLEANED UP" BY CLAUDE AI. THIS BRANCH WILL BE UNSUPPORTED AND UNTESTED AS IT WAS JUST MADE FOR FUNSIES.
 
-# The releases tab aren't the "claude cleaned" versions, they're the same as the main branch. For the Claude cleaned code, look at the .py file.
+# The releases tab aren't the "claude cleaned" versions, they're the same as the main branch. For the Claude cleaned code, look at the .py file (based on 1.1.2).
 
 calc is slang for calculator if you didnt know
 
