@@ -2,13 +2,14 @@ import math # janks ass code incoming
 import random
 import os
 
-global mode, target_hp, damage_multiplier, party_members, shadows
+global mode, target_hp, damage_multiplier, party_members, shadows, advantage_mode
 
 target_hp = None
 damage_multiplier = 20
 mode = "neutral"
 party_members = []
 shadows = []
+advantage_mode = None
 
 def clear_console():
     os.system('cls' if os.name == 'nt' else 'clear')
@@ -39,18 +40,23 @@ def get_element():
         print("Invalid element. Please try again.")
 
 def calculate_damage(attack_input, element=None, character=None):
-    if attack_input == 'melee' or (attack_input == 'skill' and element == 'phys'):
+    if attack_input == 'melee':
         is_shadow = 'weapon_power' not in character
         if is_shadow:
             power = character['strength']  # use str as wpn pwr for shadows
         else:
-            power = character['weapon_power']  # use weapon_power for party members
+            power = character['weapon_power']  # use wpn pwr for party members
         stat = character['strength']
-        damage = math.sqrt(power) * math.sqrt(stat)
-    else:  # assumes magical skill
+    elif attack_input == 'skill':
         power = get_numeric_input("Enter the skill power: ")
-        stat = character['magic']
-        damage = math.sqrt(power) * math.sqrt(stat)
+        if element == 'phys':
+            stat = character['strength']
+        else:  # magical skill
+            stat = character['magic']
+    else:
+        raise ValueError("Invalid attack input")
+
+    damage = math.sqrt(power) * math.sqrt(stat)
 
     ailment = input("Enter target's ailment (burn, shock, freeze, dizzy, sleep, forget, confuse, fear, despair, rage, brainwash or none): ").lower()
     ailment = None if ailment == 'none' else ailment
@@ -119,7 +125,7 @@ def apply_level_difference(damage, attacker_level, target_level):
         return damage * multiplier
 
 def setup_battle():
-    global party_members, shadows
+    global party_members, shadows, advantage_mode
     if mode in ["party", "shadow"]:
         num_party = get_numeric_input("Enter the number of party members: ", allow_float=False)
         if num_party is None:
@@ -144,7 +150,19 @@ def setup_battle():
     if mode in ["party", "shadow"]:
         setup_shadows()
     
+    advantage_mode = input("Which side should start first? (party/shadow/neutral): ").lower()
+    if advantage_mode == "party":
+        print("Party Advantage!")
+    elif advantage_mode == "shadow":
+        print("Shadow Advantage!")
+    elif advantage_mode == "neutral":
+        print("Neutral start. Turn order will be decided by agility.")
+    else:
+        print("Invalid input. Defaulting to neutral start.")
+        advantage_mode = "neutral"
+    
     return True
+
 
 def setup_shadows():
     global shadows
@@ -168,34 +186,47 @@ def setup_shadows():
     return True
 
 def check_battle_end():
-    global mode
+    global mode, advantage_mode
     if all(shadow['hp'] <= 0 for shadow in shadows):
         print("Party Wins!")
-        while True:
-            next_side = input("Which side should start first for the next battle? (party/shadow): ").lower()
-            if next_side in ['party', 'shadow']:
-                mode = next_side
-                break
-            else:
-                print("Invalid input. Please enter 'party' or 'shadow'.")
+        # Reset downed state for all shadows
+        for shadow in shadows:
+            shadow['downed'] = False
         if not setup_shadows():
             return False
     elif all(member['hp'] <= 0 for member in party_members):
         print("Shadows Win!")
-        while True:
-            next_side = input("Which side should start first for the next battle? (party/shadow): ").lower()
-            if next_side in ['party', 'shadow']:
-                mode = next_side
-                break
-            else:
-                print("Invalid input. Please enter 'party' or 'shadow'.")
         if not setup_battle():
             return False
+    else:
+        return True  # Battle continues
+
+    # Ask for advantage mode for the next battle
+    while True:
+        next_advantage = input("Which side should start first for the next battle? (party/shadow/neutral): ").lower()
+        if next_advantage in ['party', 'shadow', 'neutral']:
+            advantage_mode = next_advantage
+            if advantage_mode == "party":
+                print("Party Advantage!")
+            elif advantage_mode == "shadow":
+                print("Shadow Advantage!")
+            else:
+                print("Neutral start. Turn order will be decided by agility.")
+            break
+        else:
+            print("Invalid input. Please enter 'party', 'shadow', or 'neutral'.")
+
     return True
 
 def get_turn_order():
+    global advantage_mode
     all_characters = party_members + shadows
-    return sorted(all_characters, key=lambda x: x['agility'], reverse=True)
+    if advantage_mode == "party":
+        return party_members * 2 + sorted(all_characters, key=lambda x: x['agility'], reverse=True)
+    elif advantage_mode == "shadow":
+        return shadows + sorted(all_characters, key=lambda x: x['agility'], reverse=True)
+    else:  # neutral
+        return sorted(all_characters, key=lambda x: x['agility'], reverse=True)
 
 def calculate_single_attack(attack_input, element, attacker, target, armor_stat, ailment=None, crit_chance=0,):
     damage, stat, ailment = calculate_damage(attack_input, element, attacker) # does stat even do anything
@@ -251,7 +282,7 @@ def all_out_attack():
     individual_damages = []
     for member in party_members:
         if member['hp'] > 0:
-            member_damage, _ = calculate_damage('melee', 'phys', member)
+            member_damage, _, _ = calculate_damage('melee', 'phys', member)
             individual_damages.append(member_damage)
             total_damage += member_damage
 
@@ -304,7 +335,7 @@ def display_menu():
     print(f"\nCurrent mode: {mode.capitalize()}")
 
 def main():
-    global mode, party_members, shadows, target_hp, is_crit
+    global mode, party_members, shadows, target_hp, is_crit, advantage_mode
     
     while True:
         display_menu()
@@ -347,11 +378,6 @@ def main():
                 is_shadow = character in shadows
 
                 print(f"\nTurn for {'Party Member' if is_party_member else 'Shadow'} {character['number']}")
-
-                if character['hp'] <= 0:
-                    print(f"{'Party Member' if is_party_member else 'Shadow'} {character['number']} is defeated and skips their turn.")
-                    i += 1
-                    continue
                 
                 character['downed'] = False
                 
@@ -365,7 +391,7 @@ def main():
                     continue
 
                 if attack_input == 'all-out' and is_party_member:
-                    if all(shadow['downed'] for shadow in shadows):
+                    if all(shadow['downed'] for shadow in shadows if shadow['hp'] > 0):
                         all_out_attack()
                         if not check_battle_end():
                             break
@@ -377,23 +403,41 @@ def main():
 
                 # target selection
                 if is_party_member:
-                    target_input = input("Enter the number of the shadow to attack (or 0 for all): ")
-                    if target_input == '0':
-                        targets = shadows
-                    elif target_input.isdigit() and 1 <= int(target_input) <= len(shadows):
-                        targets = [shadows[int(target_input) - 1]]
-                    else:
-                        print("Invalid shadow number.")
-                        continue
+                    while True:
+                        target_input = input("Enter the number of the shadow to attack (or 0 for all): ")
+                        if target_input == '0':
+                            targets = [shadow for shadow in shadows if shadow['hp'] > 0]
+                            if not targets:
+                                print("All shadows have been defeated. Please end the battle.")
+                                continue
+                            break
+                        elif target_input.isdigit() and 1 <= int(target_input) <= len(shadows):
+                            target = shadows[int(target_input) - 1]
+                            if target['hp'] <= 0:
+                                print("This shadow has already been defeated. Please choose another target.")
+                                continue
+                            targets = [target]
+                            break
+                        else:
+                            print("Invalid shadow number.")
                 else:
-                    target_input = input("Enter the number of the party member to attack (or 0 for all): ")
-                    if target_input == '0':
-                        targets = party_members
-                    if target_input.isdigit() and 1 <= int(target_input) <= len(party_members):
-                        targets = [party_members[int(target_input) - 1]]
-                    else:
-                        print("Invalid party member number.")
-                        continue
+                    while True:
+                        target_input = input("Enter the number of the party member to attack (or 0 for all): ")
+                        if target_input == '0':
+                            targets = [member for member in party_members if member['hp'] > 0]
+                            if not targets:
+                                print("All party members have been defeated. Please end the battle.")
+                                continue
+                            break
+                        elif target_input.isdigit() and 1 <= int(target_input) <= len(party_members):
+                            target = party_members[int(target_input) - 1]
+                            if target['hp'] <= 0:
+                                print("This party member has already been defeated. Please choose another target.")
+                                continue
+                            targets = [target]
+                            break
+                        else:
+                            print("Invalid party member number.")
 
                 element = 'phys' if attack_input == 'melee' else get_element()
                 if element is None:
@@ -434,13 +478,10 @@ def main():
                     target['hp'] = max(0, round(target['hp'] - rounded_damage))
                     print(f"Remaining HP for {'Shadow' if is_party_member else 'Party Member'} {target['number']}: {target['hp']}")
 
-                    if not check_battle_end():
-                        break
-
                     if target['hp'] <= 0:
                         turn_order = [char for char in turn_order if char != target]
                         
-                    if weakness == 'weak' or is_crit:
+                    if (weakness == 'weak' or is_crit) and not all(shadow['hp'] <= 0 for shadow in shadows):
                         target['downed'] = True
                         one_more = True
                         print(f"{'Shadow' if is_party_member else 'Party Member'} {target['number']} is downed!")
@@ -451,6 +492,13 @@ def main():
                         turn_order[i+1:i+1] = extra_turns
                 
                 i += 1
+
+                # Reset advantage mode after the first round
+                if advantage_mode in ["party", "shadow"] and i >= len(party_members) + len(shadows):
+                    print("Advantage turn(s) completed. Returning to normal turn order.")
+                    advantage_mode = "neutral"
+                    turn_order = get_turn_order()
+                    i = 0
 
             if not check_battle_end():
                 continue
@@ -532,7 +580,7 @@ def main():
             print(f"Final damage: {final_damage:.2f}")
             print(f"Final damage (multiplied by {damage_multiplier} and rounded): {rounded_damage}")
 
-            if target_hp is not None:
+            if target_hp is not None: # does this even do anything
                 target_hp = max(0, round(target_hp - rounded_damage))
                 if target_hp <= 0:
                     print("Target HP reduced to 0 or below.")
