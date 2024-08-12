@@ -535,7 +535,7 @@ def main():
                          'level': get_numeric_input("Enter attacker level: ", allow_float=False)}, 
                         {'endurance': get_numeric_input("Enter target's endurance: "), 
                          'level': get_numeric_input("Enter target level: ", allow_float=False)},
-                        armor_stat, ailment, crit_chance)
+                        armor_stat, crit_chance)
                 elif user_input == 'skill':
 
                     element = get_element()
